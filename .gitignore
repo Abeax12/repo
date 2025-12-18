@@ -1,0 +1,8 @@
+# Ansible runtime
+*.retry
+
+# Secrets / vault
+.vault_pass
+
+# If you later choose to archive certs locally, keep them out of git
+ansible/artifacts/

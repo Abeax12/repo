@@ -1,0 +1,68 @@
+---
+- name: Ensure tls_domains is a list
+  ansible.builtin.assert:
+    that:
+      - tls_domains is iterable
+      - (tls_domains | length) > 0
+    fail_msg: "tls_domains must be a non-empty list (set in group_vars/all.yml or per-host)."
+
+- name: Ensure destination base directory exists
+  ansible.builtin.file:
+    path: "{{ tls_dest_dir_base }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+# Read certs from the certbot host without writing them to the controller disk.
+# (Private key stays in-memory; no_log prevents leaking in output.)
+- name: Slurp fullchain.pem from certbot host
+  ansible.builtin.slurp:
+    src: "/etc/letsencrypt/live/{{ item }}/fullchain.pem"
+  delegate_to: "{{ tls_cert_source_host }}"
+  loop: "{{ tls_domains }}"
+  register: _slurped_fullchain
+
+- name: Slurp privkey.pem from certbot host
+  ansible.builtin.slurp:
+    src: "/etc/letsencrypt/live/{{ item }}/privkey.pem"
+  delegate_to: "{{ tls_cert_source_host }}"
+  loop: "{{ tls_domains }}"
+  register: _slurped_privkey
+  no_log: true
+
+- name: Build maps for cert content
+  ansible.builtin.set_fact:
+    _fullchain_map: "{{ dict(_slurped_fullchain.results | map(attribute='item') | zip(_slurped_fullchain.results | map(attribute='content'))) }}"
+    _privkey_map: "{{ dict(_slurped_privkey.results | map(attribute='item') | zip(_slurped_privkey.results | map(attribute='content'))) }}"
+  no_log: true
+
+- name: Ensure per-domain destination directories exist
+  ansible.builtin.file:
+    path: "{{ tls_dest_dir_base }}/{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop: "{{ tls_domains }}"
+
+- name: Install fullchain.pem
+  ansible.builtin.copy:
+    dest: "{{ tls_dest_dir_base }}/{{ item }}/fullchain.pem"
+    content: "{{ (_fullchain_map[item] | b64decode) }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ tls_domains }}"
+  notify: Reload TLS-dependent services
+
+- name: Install privkey.pem
+  ansible.builtin.copy:
+    dest: "{{ tls_dest_dir_base }}/{{ item }}/privkey.pem"
+    content: "{{ (_privkey_map[item] | b64decode) }}"
+    owner: root
+    group: root
+    mode: '0600'
+  loop: "{{ tls_domains }}"
+  no_log: true
+  notify: Reload TLS-dependent services
