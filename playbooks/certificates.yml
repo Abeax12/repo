@@ -1,0 +1,19 @@
+---
+# Run certbot on the declared web host(s), then deploy to apache2 service hosts.
+
+- name: Obtain / renew certificates on web hosts
+  hosts: web
+  become: true
+  roles:
+    - role: certbot-client
+      vars:
+        certbot_client_action: renew
+
+- name: Deploy certificates to apache2 service hosts
+  hosts: apache2
+  become: true
+  tasks:
+    - name: Deploy certs for this host from declared web host
+      include_role:
+        name: certbot-client
+        tasks_from: deploy

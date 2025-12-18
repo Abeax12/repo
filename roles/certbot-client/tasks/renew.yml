@@ -1,0 +1,55 @@
+---
+# Issues missing certs and renews due certs.
+# Only operates on items assigned to this web host.
+
+- name: Select certificates managed by this web host
+  ansible.builtin.set_fact:
+    _certbot_web_items: "{{ sis_certificates | selectattr('web_host', 'defined') | selectattr('web_host', 'equalto', inventory_hostname) | list }}"
+
+- name: Ensure we have something to do
+  ansible.builtin.debug:
+    msg: "No certificates assigned to {{ inventory_hostname }}"
+  when: _certbot_web_items | length == 0
+
+- name: Obtain / renew certificates
+  ansible.builtin.command:
+    cmd: >-
+      certbot certonly --non-interactive --agree-tos
+      --email {{ item.email | default('root@localhost') }}
+      --config-dir {{ certbot_client_config_dir }}
+      --work-dir {{ certbot_client_work_dir }}
+      --logs-dir {{ certbot_client_logs_dir }}
+      --cert-name {{ item.name }}
+      {{
+        ('--webroot -w ' ~ (item.certbot.webroot_path | default('/var/www/html')))
+        if (item.certbot is defined and (item.certbot.authenticator | default('webroot')) == 'webroot')
+        else '--standalone'
+      }}
+      {% for d in (item.domains | default([item.name])) %}-d {{ d }} {% endfor %}
+      {{ (item.certbot.extra_args | default([])) | join(' ') }}
+  register: _certbot_cmd
+  changed_when: >-
+    ('not yet due' not in ((_certbot_cmd.stdout | default('')) | lower))
+  loop: "{{ _certbot_web_items }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - _certbot_web_items | length > 0
+    - (item.state | default('present')) == 'present'
+
+- name: Ensure certbot renew systemd timer is enabled when present
+  ansible.builtin.service:
+    name: certbot.timer
+    enabled: true
+    state: started
+  failed_when: false
+
+- name: Build cert artifacts for downstream deployment
+  ansible.builtin.set_fact:
+    certbot_artifacts: "{{ certbot_artifacts | default({}) | combine({ item.name: { 'fullchain_path': certbot_client_config_dir ~ '/live/' ~ item.name ~ '/fullchain.pem', 'privkey_path': certbot_client_config_dir ~ '/live/' ~ item.name ~ '/privkey.pem' } }, recursive=True) }}"
+  loop: "{{ _certbot_web_items }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - _certbot_web_items | length > 0
+    - (item.state | default('present')) == 'present'

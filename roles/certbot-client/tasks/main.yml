@@ -1,0 +1,28 @@
+---
+- name: Validate sis_certificates defined
+  ansible.builtin.assert:
+    that:
+      - sis_certificates is defined
+      - sis_certificates is iterable
+    quiet: true
+
+- name: Install certbot
+  ansible.builtin.package:
+    name: "{{ certbot_client_packages }}"
+    state: present
+
+- name: Ensure certbot working directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ certbot_client_base_dir }}"
+    - "{{ certbot_client_config_dir }}"
+    - "{{ certbot_client_work_dir }}"
+    - "{{ certbot_client_logs_dir }}"
+
+- name: Run requested lifecycle action
+  ansible.builtin.include_tasks: "{{ certbot_client_action }}.yml"

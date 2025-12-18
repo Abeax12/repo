@@ -1,0 +1,42 @@
+---
+# Revokes and removes certificates.
+
+- name: Select certificates managed by this web host
+  ansible.builtin.set_fact:
+    _certbot_web_items: "{{ sis_certificates | selectattr('web_host', 'defined') | selectattr('web_host', 'equalto', inventory_hostname) | list }}"
+
+- name: Retire certificates
+  ansible.builtin.command:
+    argv:
+      - certbot
+      - revoke
+      - --non-interactive
+      - --agree-tos
+      - --config-dir
+      - "{{ certbot_client_config_dir }}"
+      - --work-dir
+      - "{{ certbot_client_work_dir }}"
+      - --logs-dir
+      - "{{ certbot_client_logs_dir }}"
+      - --cert-path
+      - "{{ certbot_client_config_dir }}/live/{{ item.name }}/cert.pem"
+  register: revoke_result
+  changed_when: true
+  failed_when: false
+  loop: "{{ _certbot_web_items }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - _certbot_web_items | length > 0
+    - (item.state | default('present')) == 'retired'
+
+- name: Remove retired cert lineage files/directories
+  ansible.builtin.file:
+    path: "{{ certbot_client_config_dir }}/{{ item.1 | replace('__NAME__', item.0.name) }}"
+    state: absent
+  with_nested:
+    - "{{ _certbot_web_items | selectattr('state', 'defined') | selectattr('state', 'equalto', 'retired') | list }}"
+    - ["live/__NAME__", "archive/__NAME__", "renewal/__NAME__.conf"]
+  when: _certbot_web_items | length > 0
+
+

@@ -1,0 +1,83 @@
+---
+- name: Determine source web host
+  ansible.builtin.set_fact:
+    _src_web_host: "{{ item.web_host }}"
+
+- name: Validate source web host has produced artifacts
+  ansible.builtin.assert:
+    that:
+      - _src_web_host is string
+      - _src_web_host | length > 0
+      - hostvars[_src_web_host] is defined
+      - hostvars[_src_web_host].certbot_artifacts is defined
+      - hostvars[_src_web_host].certbot_artifacts[item.name] is defined
+    fail_msg: >-
+      Missing cert artifacts for {{ item.name }} from web_host={{ _src_web_host }}.
+      Ensure the first play (web hosts) ran and {{ item.name }} is present on that web host.
+  when: (item.state | default('present')) == 'present'
+
+- name: Compute destination paths
+  ansible.builtin.set_fact:
+    _dest_prefix: "{{ item.deploy.path_prefix | default('/etc/ssl/sis') }}/{{ item.name }}"
+    _dest_fullchain: "{{ (item.deploy.path_prefix | default('/etc/ssl/sis')) ~ '/' ~ item.name ~ '/fullchain.pem' }}"
+    _dest_privkey: "{{ (item.deploy.path_prefix | default('/etc/ssl/sis')) ~ '/' ~ item.name ~ '/privkey.pem' }}"
+
+- name: Ensure destination directory exists
+  ansible.builtin.file:
+    path: "{{ _dest_prefix }}"
+    state: directory
+    owner: "{{ item.deploy.owner | default('root') }}"
+    group: "{{ item.deploy.group | default('root') }}"
+    mode: "0755"
+  when: (item.state | default('present')) == 'present'
+
+- name: Read fullchain from web host
+  ansible.builtin.slurp:
+    src: "{{ hostvars[_src_web_host].certbot_artifacts[item.name].fullchain_path }}"
+  register: _slurped_fullchain
+  delegate_to: "{{ _src_web_host }}"
+  when:
+    - (item.state | default('present')) == 'present'
+
+- name: Read privkey from web host
+  ansible.builtin.slurp:
+    src: "{{ hostvars[_src_web_host].certbot_artifacts[item.name].privkey_path }}"
+  register: _slurped_privkey
+  delegate_to: "{{ _src_web_host }}"
+  when:
+    - (item.state | default('present')) == 'present'
+
+- name: Write fullchain
+  ansible.builtin.copy:
+    content: "{{ _slurped_fullchain.content | b64decode }}"
+    dest: "{{ _dest_fullchain }}"
+    owner: "{{ item.deploy.owner | default('root') }}"
+    group: "{{ item.deploy.group | default('root') }}"
+    mode: "{{ item.deploy.cert_mode | default('0644') }}"
+  register: _copy_fullchain
+  when: (item.state | default('present')) == 'present'
+
+- name: Write privkey
+  ansible.builtin.copy:
+    content: "{{ _slurped_privkey.content | b64decode }}"
+    dest: "{{ _dest_privkey }}"
+    owner: "{{ item.deploy.owner | default('root') }}"
+    group: "{{ item.deploy.group | default('root') }}"
+    mode: "{{ item.deploy.key_mode | default('0600') }}"
+  register: _copy_privkey
+  when: (item.state | default('present')) == 'present'
+
+- name: Reload service if certificate changed
+  ansible.builtin.service:
+    name: "{{ item.deploy.reload_service | default(certbot_deploy_reload_service_default) }}"
+    state: reloaded
+  when:
+    - (item.state | default('present')) == 'present'
+    - (item.deploy.reload_service | default(certbot_deploy_reload_service_default)) is not none
+    - (_copy_fullchain.changed | default(false)) or (_copy_privkey.changed | default(false))
+
+- name: Remove deployed certs when retired
+  ansible.builtin.file:
+    path: "{{ _dest_prefix }}"
+    state: absent
+  when: (item.state | default('present')) == 'retired'

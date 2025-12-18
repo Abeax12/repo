@@ -1,0 +1,18 @@
+---
+# Deploy certs to the current host (apache2 service host).
+# Uses cert artifacts produced on the designated web host.
+
+- name: Deploy each eligible certificate
+  ansible.builtin.include_tasks: deploy_one.yml
+  loop: "{{ sis_certificates | default([]) }}"
+  loop_control:
+    label: "{{ item.name | default('unnamed-certificate') }}"
+  when:
+    - item is mapping
+    - item.deploy is defined
+    - >
+      (
+        (item.deploy.hosts is defined and inventory_hostname in (item.deploy.hosts | default([])))
+        or
+        ((item.deploy.groups | default([])) | intersect(group_names) | length > 0)
+      )

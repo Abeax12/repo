@@ -1,0 +1,27 @@
+# Certificate lifecycle inventory.
+# One entry = one cert name (a.k.a. "-d" primary name / certbot lineage).
+
+sis_certificates: []
+
+# Example:
+# sis_certificates:
+#   - name: "example.com"
+#     state: present   # present|retired
+#     web_host: "web01.admin"   # host that runs certbot
+#     domains:
+#       - "example.com"
+#       - "www.example.com"
+#     email: "admin@example.com"
+#     certbot:
+#       authenticator: webroot  # webroot|standalone
+#       webroot_path: "/var/www/html"
+#       extra_args: []
+#     deploy:
+#       groups:
+#         - "apache2"
+#       path_prefix: "/etc/ssl/sis"
+#       owner: "root"
+#       group: "root"
+#       cert_mode: "0644"
+#       key_mode: "0600"
+#       reload_service: "apache2"

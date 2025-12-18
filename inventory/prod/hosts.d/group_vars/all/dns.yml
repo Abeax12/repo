@@ -1,0 +1,12 @@
+# DNS mapping used by ACME validation workflows.
+# Populate these records to match your environment.
+
+sis_dns:
+  # example.com:
+  #   provider: route53
+  #   zone: example.com
+  #   records:
+  #     - name: "_acme-challenge"
+  #       type: "TXT"
+  #       value: "..."
+  {}

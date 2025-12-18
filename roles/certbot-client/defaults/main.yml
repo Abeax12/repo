@@ -1,0 +1,20 @@
+---
+# Base directory on the *web host* where certbot will store config/work/logs.
+# Matches repo naming (certs/NETCAG2) but is a runtime path.
+certbot_client_base_dir: /opt/sis/certs/NETCAG2
+
+certbot_client_config_dir: "{{ certbot_client_base_dir }}/config"
+certbot_client_work_dir: "{{ certbot_client_base_dir }}/work"
+certbot_client_logs_dir: "{{ certbot_client_base_dir }}/logs"
+
+# certbot_client_action:
+# - renew: issue missing + renew due
+# - retire: revoke + remove
+certbot_client_action: renew
+
+# Package names (Debian/Ubuntu defaults; override per distro as needed)
+certbot_client_packages:
+  - certbot
+
+# When deploying to apache2 service hosts
+certbot_deploy_reload_service_default: apache2
