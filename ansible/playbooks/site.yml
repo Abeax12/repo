@@ -1,0 +1,12 @@
+---
+- name: Issue/renew certificates on certbot host
+  hosts: certbot
+  gather_facts: true
+  roles:
+    - role: certbot
+
+- name: Deploy certificates to service servers
+  hosts: services
+  gather_facts: true
+  roles:
+    - role: cert_deploy

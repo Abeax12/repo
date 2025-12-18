@@ -1,0 +1,7 @@
+---
+- name: Reload TLS-dependent services
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: reloaded
+  loop: "{{ tls_reload_services | default([]) }}"
+  when: (tls_reload_services | default([]) | length) > 0

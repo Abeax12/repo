@@ -1,0 +1,7 @@
+# Settings for the host that runs certbot
+certbot_email: admin@example.com
+certbot_method: webroot  # webroot|standalone
+certbot_webroot_path: /var/www/html
+
+# Optional: extra args (e.g., staging, preferred chain, dns plugins, etc.)
+certbot_extra_args: []

@@ -1,0 +1,16 @@
+# Common TLS settings
+# Downstream hosts will deploy these certs from the first host in the `certbot` group.
+tls_cert_source_host: "{{ (groups['certbot'] | list | first) }}"
+
+# Domains to issue/deploy. Override per-host if needed.
+tls_domains:
+  - example.com
+  - www.example.com
+
+# Where to install certs on service servers
+# (Keep these out of /etc/letsencrypt to avoid confusing certbot state.)
+tls_dest_dir_base: /etc/ssl/letsencrypt
+
+# Services to reload on *service* servers after updates
+# Examples: ["apache2"], ["nginx"], ["haproxy"], ["docker"]
+tls_reload_services: []
