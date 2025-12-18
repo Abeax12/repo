@@ -1,0 +1,12 @@
+# Apache vhost config placeholder for web01.admin.
+# Define your vhosts here if the web node also runs apache.
+
+apache2_vhosts: []
+
+# Example:
+# apache2_vhosts:
+#   - server_name: example.com
+#     document_root: /var/www/example
+#     listen: 443
+#     ssl_certificate_file: /etc/ssl/sis/example.com/fullchain.pem
+#     ssl_certificate_key_file: /etc/ssl/sis/example.com/privkey.pem
